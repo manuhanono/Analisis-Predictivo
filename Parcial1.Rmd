@@ -1,0 +1,510 @@
+---
+title: "Precios de AirBnB en capitales europeas"
+output: 
+  bookdown::html_document2:
+    toc: true #TRUE to include a table of contents in the output
+    toc_depth: 1 # Depth of headers to include in table of contents
+    toc_float: true
+    code_download: false
+    citation_package: natbib
+link-citations: yes
+bibliography: []
+---
+
+```{r clean,  message=F, include=FALSE}
+#Carga de librerias
+library(tidyverse)
+library(janitor)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(funModeling)
+library(factoextra)
+library(cluster)
+library(NbClust)
+library(viridis)
+library(forcats)
+library(RColorBrewer)
+library(tidyverse)
+library(corrplot)
+library(cowplot)
+library(rpart)
+library(GGally)
+library(caret)
+library(kableExtra)
+library(leaflet)
+library(plotly)
+library(ggridges)
+```
+
+
+```{r, message=F, include=FALSE}
+#Cargo todas las bases
+amsterdam_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/amsterdam_weekdays.csv")
+amsterdam_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/amsterdam_weekends.csv")
+athens_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/athens_weekdays.csv")
+athens_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/athens_weekends.csv")
+barcelona_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/barcelona_weekdays.csv")
+barcelona_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/barcelona_weekends.csv")
+berlin_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/berlin_weekdays.csv")
+berlin_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/berlin_weekends.csv")
+budapest_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/budapest_weekdays.csv")
+budapest_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/budapest_weekends.csv")
+lisbon_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/lisbon_weekdays.csv")
+lisbon_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/lisbon_weekends.csv")
+london_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/london_weekdays.csv")
+london_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/london_weekends.csv")
+paris_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/paris_weekdays.csv")
+paris_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/paris_weekends.csv")
+rome_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/rome_weekdays.csv")
+rome_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/rome_weekends.csv")
+vienna_weekdays = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/vienna_weekdays.csv")
+vienna_weekend = read_csv("/Users/manu/Analisis Predictivo/Bases Airbnb Ciudades/vienna_weekends.csv")
+
+amsterdam_weekdays$city = 'Amsterdam'
+amsterdam_weekdays$day= 'weekday'
+amsterdam_weekend$city = 'Amsterdam'
+amsterdam_weekend$day = 'weekend'
+athens_weekdays$city = 'Athens'
+athens_weekdays$day= 'weekday'
+athens_weekend$city = 'Athens'
+athens_weekend$day = 'weekend'
+barcelona_weekdays$city = 'Barcelona'
+barcelona_weekdays$day= 'weekday'
+barcelona_weekend$city = 'Barcelona'
+barcelona_weekend$day = 'weekend'
+berlin_weekdays$city = 'Berlin'
+berlin_weekdays$day = 'weekday'
+berlin_weekend$city = 'Berlin'
+berlin_weekend$day = 'weekend'
+budapest_weekdays$city = 'Budapest'
+budapest_weekdays$day = 'weekday'
+budapest_weekend$city = 'Budapest'
+budapest_weekend$day = 'weekend'
+lisbon_weekdays$city = 'Lisbon'
+lisbon_weekdays$day = 'weekday'
+lisbon_weekend$city = 'Lisbon'
+lisbon_weekend$day = 'weekend'
+london_weekdays$city = 'London'
+london_weekdays$day = 'weekday'
+london_weekend$city = 'London'
+london_weekend$day = 'weekend'
+paris_weekdays$city = 'Paris'
+paris_weekdays$day = 'weekday'
+paris_weekend$city = 'Paris'
+paris_weekend$day = 'weekend'
+rome_weekdays$city = 'Rome'
+rome_weekdays$day = 'weekday'
+rome_weekend$city = 'Rome'
+rome_weekend$day = 'weekend'
+vienna_weekdays$city = 'Vienna'
+vienna_weekdays$day = 'weekday'
+vienna_weekend$city = 'Vienna'
+vienna_weekend$day = 'weekend'
+  
+dat = rbind(amsterdam_weekdays, amsterdam_weekend,
+athens_weekdays,athens_weekend,barcelona_weekdays,barcelona_weekend,berlin_weekdays,berlin_weekend,budapest_weekdays,budapest_weekend,lisbon_weekdays,lisbon_weekend,london_weekdays,london_weekend,paris_weekdays,paris_weekend,rome_weekdays,rome_weekend,vienna_weekdays,vienna_weekend)
+dat = dat %>% select(-c(room_shared, room_private, ...1, attr_index_norm, rest_index_norm))
+```
+
+# Introducción
+
+Las bases con las que se va a trabajar, cuentan con información de los hospedajes en alquiler en la plataforma Airbnb en 10 de las principales capitales del continente europeo. Para cada capital, hay dos bases, una con la información y los precios de las que se alquilan en dias de semana y otras con lo mismo pero para los precios en los fines de semana.
+Todas tienen diferentes variables que ayudan a analizar y poder predecir cúal será el precio de listado (por noche) del hospedaje.
+Las mismas fueron obtenidas de <https://www.kaggle.com/datasets/thedevastator/airbnb-prices-in-european-cities> y cuentan con 17 columnas
+En total, son 20 las bases distintas que fueron unidas para la realización del trabajo. Para dar un total de **51707** observaciones.
+
+# Descripción de las variables
+
+La base cuenta con las siguientes variables:
+
+-   realSum:	Precio de listado en la plataforma Airbnb (Numeric). Esta va a ser la variable a **predecir**.
+-   room_type:	Tipo de habitación (e.g. private, shared, etc.). (Categorical)
+-   person_capacity:	Máxima cantidad de personas que se pueden alojar en el lugar. (Numeric)
+-   host_is_superhost:	Whether the host is a superhost or not. (Boolean)
+-   multi:	Whether the listing is for multiple rooms or not. (Boolean)
+-   biz:	Whether the listing is for business purposes or not. (Boolean)
+-   cleanliness_rating:	The cleanliness rating of the listing. (Numeric)
+-   guest_satisfaction_overall:	The overall guest satisfaction rating of the listing. (Numeric)
+-   bedrooms:	The number of bedrooms in the listing. (Numeric)
+-   dist:	The distance from the city centre. (Numeric)
+-   metro_dist:	The distance from the nearest metro station. (Numeric)
+-   lng:	The longitude of the listing. (Numeric)
+-   lat:	The latitude of the listing. (Numeric)
+-   attr_index: attraction index of the listing location
+-   rest_index: restaurant index of the listing location
+
+Además, a la hora de juntar las bases, se agregan dos más:
+
+-   city: donde esta ubicado el alojamiento. (Categorical)
+-   day: weekday or weekend (Categorical)
+
+```{r}
+dat$multi = as.logical(dat$multi)
+dat$biz = as.logical(dat$biz)
+glimpse(dat)
+```
+
+```{r}
+head(dat)
+```
+
+# Análisis Exploratorio de los Datos (EDA)
+El objetivo es poder predecir a que valor se puede listar el precio de un alojamiento en base a los datos que tenemos. 
+
+### Chequeo de duplicados
+```{r}
+dat %>% janitor::get_dupes()
+```
+La base no contiene registros duplicados.
+
+### Chequeo de missings
+```{r message=F, include=FALSE}
+a = df_status(dat)
+```
+```{r}
+a
+```
+
+## Análisis de las Variables númericas
+
+Se va a dividir la base entre sus variables númericas y las categoricas.
+```{r}
+df_num = dat %>% select(-c(multi, biz, lng, lat, room_type, host_is_superhost, city, day))
+df_cat = dat %>% select(-c(realSum, person_capacity, cleanliness_rating, guest_satisfaction_overall, bedrooms, dist, metro_dist, lng, lat, rest_index, attr_index))
+```
+
+Se ven tablas generales y se realizan gráficos de correlación correspondientes a las variables númericas y de frecuencias para las variables categóricas.
+```{r}
+GGally::ggcorr(
+  df_num, method=c("pairwise","spearman"),  
+  label=T, hjust=1, label_size=2, layout.exp=10, size=3)
+
+corrplot(cor(df_num))
+
+pairs(df_num, pch = 10,  cex = 0.5,
+      col = "#77cff2",
+            lower.panel=NULL)
+
+a = summary(df_num)
+kable(a, format = "html", table.attr = "style='width:90%;'",digits = 3, format.args = list(big.mark = ",",scientific = FALSE)) %>% 
+kableExtra::kable_styling() 
+options(knitr.kable.NA = '')
+
+a = summary(df_cat)
+kable(a, format = "html", table.attr = "style='width:90%;'",digits = 3, format.args = list(big.mark = ",",scientific = FALSE)) %>% 
+kableExtra::kable_styling() 
+options(knitr.kable.NA = '')
+
+
+freq(dat, input = c("city", "room_type", "day", "host_is_superhost", "multi", "biz")) 
+```
+
+
+#### RealSum
+
+La variable principal de nuestro análisis, que representa el precio de listado en la plataforma Airbnb, es la primera que se va a analizar. Ya con el summary, es posible notar que 
+
+Luego, se debe analizar si existen valores atipicos o outliers. Viendo en el gráfico, encontramos que existen. Tenemos 10 valores que se podrían considerar atipicos con respecto al resto de los valores. Sin embargo, al ser una edad, por el momento se van a dejar, ya que pueden ser interesantes para el análisis.
+
+
+```{r}
+summary(dat$realSum)
+
+ggplot(dat, aes(x = "", y=realSum, fill = day)) + geom_boxplot()+ coord_flip() + 
+  scale_y_continuous(trans='log10') +
+    scale_fill_brewer(palette="Paired") + theme(panel.background = element_blank())
+
+ggplot(dat, aes(x=city, y=realSum, fill=city)) +
+  geom_boxplot() + 
+  scale_y_continuous(trans='log10')+
+  coord_flip() +
+  theme(legend.position="none",panel.background = element_blank()) +
+  NULL +
+    scale_fill_brewer(palette="PuBu")
+
+dat %>% ggplot(aes(x=realSum)) + geom_histogram() +
+  geom_vline(aes(xintercept=mean(realSum)), color="black") +
+  labs(title = "Histograma de 'realSum'",
+       x = "realSum",
+       y = "Frecuencia") +
+  scale_fill_continuous(name="Frecuencia") +
+  theme_minimal()
+
+dat %>% ggplot() +
+  aes(x = city, y = realSum, color = day) +
+  geom_jitter() + theme_minimal() 
+
+dat %>%  filter(realSum <= 5000) %>% ggplot() +
+  aes(x = city, y = realSum, color = city) +
+  geom_jitter()
+
+dat %>% ggplot() +
+  aes(x = day, y = realSum, color = city) +
+  geom_jitter()
+
+dat %>% ggplot(aes(x=log10(realSum), y=city , fill=city)) +
+  ggridges::stat_density_ridges(
+    quantile_lines=T, quantiles=c(.25,.5,.75), alpha=0.7) + 
+    scale_fill_brewer(palette="PuBu")+
+  labs(
+      x = "log(realSum)",
+       y = "") + NULL
+
+```
+#### person_capacity
+
+```{r}
+summary(dat$person_capacity)
+ggplot(dat, aes(x = city, y=person_capacity, fill = city)) + geom_boxplot()  + theme(panel.background = element_blank()) + theme_minimal() + coord_flip()+ scale_y_continuous(name="Person capacity", limits=c(2,6)) +
+    scale_fill_brewer(palette="PuBu") 
+
+
+ggplot(dat, aes(x = "", y=person_capacity, fill = 'black')) + geom_boxplot() + theme_minimal() + coord_flip()
+
+dat %>% ggplot(aes(x=person_capacity, fill = day)) + geom_histogram(alpha = 0.5)  +
+  labs(title = "Histograma de 'person_capacity'",
+       x = "person_capacity",
+       y = "Cantidad") +
+  theme_minimal() + NULL
+
+ggplot(dat, aes(x=log10(realSum), fill=day)) +
+  geom_histogram(alpha=0.5) +
+  NULL
+
+dat %>% ggplot(aes(x=person_capacity, fill = city)) + geom_histogram(bins = 5)  +
+    facet_wrap(~city, scale="free")+
+  labs(title = "Histograma de 'person_capacity'",
+       x = "person_capacity",
+       y = "Cantidad") +
+  theme_minimal()
+```
+#### cleanliness_rating
+```{r}
+summary(dat$cleanliness_rating)
+ggplot(dat, aes(x = "", y=cleanliness_rating)) + geom_boxplot(fill = "#26619c")+ theme_minimal() + coord_flip() 
+
+dat %>% ggplot(aes(x=cleanliness_rating, fill = city)) + geom_histogram(bins = 5)  +
+    facet_wrap(~city, scale="free")+
+  labs(title = "Histograma de 'cleanliness_rating'",
+       x = "cleanliness_rating",
+       y = "Cantidad") +
+  theme_minimal()
+
+```
+
+#### guest_satisfaction_overall
+```{r}
+summary(dat$guest_satisfaction_overall)
+ggplot(dat, aes(x = "", y=guest_satisfaction_overall)) + geom_boxplot(fill = "#26619c")+ theme_minimal() + coord_flip()
+```
+
+#### bedrooms
+```{r}
+summary(dat$bedrooms)
+
+ggplot(dat, aes(x = city, y=bedrooms, fill = city)) + geom_boxplot()+ theme_minimal() + coord_flip() + scale_y_continuous(name="Number of bedrooms", limits=c(0,10)) +
+    scale_fill_brewer(palette="PuBu") 
+```
+
+#### dist
+```{r}
+
+summary(dat$dist)
+ggplot(dat, aes(x = "", y=dist)) + geom_boxplot(fill = "#26619c")+ theme_minimal() + coord_flip()
+```
+
+#### metro_dist
+```{r}
+summary(dat$metro_dist)
+
+ggplot(dat, aes(x = "", y=metro_dist)) + geom_boxplot(fill = "#26619c")+ theme_minimal() + coord_flip()
+
+```
+#### attr_index
+```{r}
+summary(dat$attr_index)
+
+ggplot(dat, aes(x = "", y= attr_index)) + geom_boxplot(fill = "#26619c")+ theme_minimal() + coord_flip()
+
+ggplot(dat) +
+  aes(x = log(realSum), y = attr_index, color = city,xlab = "", ylab = "Age") + facet_wrap(~city, scale = "free")+
+  geom_jitter() +
+  theme(legend.position = "none")
+
+ggplot(dat, aes(x=attr_index, y=log10(realSum))) +
+  geom_point(aes(color=city), size=.7) +
+  geom_smooth(se=F, method="loess", size=.8) +
+  facet_wrap(city ~ ., scales="free_y") +
+  theme_minimal() +
+  NULL
+
+ggplot(dat, aes(x=attr_index, y=realSum)) +
+  geom_point(aes(color=city), size=.8) +
+  geom_smooth(se=F, method="lm")  +
+  scale_x_continuous(trans='log10') +
+  scale_y_continuous(trans='log10') +
+  theme_minimal() +
+  NULL
+
+```
+
+
+#### rest_index
+```{r}
+summary(dat$rest_index)
+
+ggplot(dat, aes(x = "", y=rest_index)) + geom_boxplot(fill = "#26619c")+ theme_minimal() + coord_flip()
+```
+
+## Análisis de las variables categóricas
+
+¿Son menos accesibles ecónomicamente los alojamientos que publican los superhost?
+¿Las habitaciones compartidas, suelen ser más baratas?
+¿Como se comportan las habitaciones privadas en relación al precio?
+```{r}
+dat %>% ggplot(aes(x=log(realSum), y=city , fill=host_is_superhost)) +
+  ggridges::stat_density_ridges(
+    quantile_lines=T, quantiles=c(.25,.5,.75), alpha=0.7) + 
+    scale_fill_brewer(palette="PuBu")+
+  labs(
+      x = "log(realSum)",
+       y = "") + NULL + theme_minimal()
+
+ggplot(dat, aes(x=log(realSum), fill=host_is_superhost)) +
+  geom_histogram(alpha=0.5) +labs(
+      x = "Es el host un superhost?",
+       y = "Precio (ajustado con log)")+ theme_minimal() + 
+    scale_fill_brewer(palette="PuBu") +
+  NULL
+
+ggplot(dat, aes(x=log(realSum), fill=multi)) +
+  geom_histogram(alpha=0.5) +labs(
+      x = "Es el host un superhost?",
+       y = "Precio (ajustado con log)")+ theme_minimal() + 
+    scale_fill_brewer(palette="PuBu") +
+  NULL
+
+ggplot(dat, aes(x=log(realSum), fill=biz)) +
+  geom_histogram(alpha=0.5) +labs(
+      x = "Es el host un superhost?",
+       y = "Precio (ajustado con log)")+ theme_minimal() + 
+    scale_fill_brewer(palette="PuBu") +
+  NULL
+
+dat %>% ggplot(aes(x=log10(realSum), y=room_type , fill=room_type)) +
+  ggridges::stat_density_ridges(
+    quantile_lines=T, quantiles=c(.25,.5,.75), alpha=0.7) + 
+    scale_fill_brewer(palette="PuBu")+
+  labs(
+      x = "log(realSum)",
+       y = "Tipo de habitación") + NULL + theme_minimal()
+
+dat %>% ggplot(aes(x=log10(realSum), y=city , fill=room_type)) +
+  ggridges::stat_density_ridges(
+    quantile_lines=T, quantiles=c(.25,.5,.75), alpha=0.7) +
+    scale_fill_brewer(palette="PuBu")+
+  labs(
+      x = "log(realSum)",
+       y = "Tipo de habitación") + NULL + theme_minimal()
+
+ggplot(dat, aes(fill=room_type, x=city)) + 
+    geom_bar(position="fill", state = "identity") + coord_flip()+
+  labs(y = "Porcentaje",x = "Ciudad") + NULL + theme_minimal() + 
+    scale_fill_brewer(palette="PuBu")# scale_fill_manual(values = c("#2A6E8E","#5DAEB2","#08306B"))  
+
+
+ggplot(dat, aes(x=log10(realSum), y = dist, colour=city))+
+  geom_point(data = transform(dat,
+            city = NULL), colour = "grey85")+
+  geom_point()+  
+  geom_smooth(se=F, method="loess", size=.8, colour = "black")+
+  facet_wrap(~city)+
+  labs(y="Distancia al centro")+
+  theme(legend.position="none") + theme_minimal()  + scale_color_manual(values = c("#2A6E8E","#08306B","#5DAEB2","#08306B","#08519C","#27a4f2", "#3eaef4","#77cff2", "#8ad6f4", "#b9e7f8"))
+
+ggplot(dat, aes(x=log10(realSum), y = attr_index, colour=city))+
+  geom_point(data = transform(dat,
+            city = NULL), colour = "grey85")+
+  geom_point()+  
+  geom_smooth(se=F, method="loess", size=.8, colour = "black")+
+  facet_wrap(~city)+
+  labs(y="Distancia al centro")+
+  theme(legend.position="none") + theme_minimal()  + scale_color_manual(values = c("#2A6E8E","#08306B","#5DAEB2","#08306B","#08519C","#27a4f2", "#3eaef4","#77cff2", "#8ad6f4", "#b9e7f8"))
+
+ggplot(dat, aes(x=room_type, y=realSum, fill=room_type)) +
+  geom_boxplot() + 
+  scale_y_continuous(trans='log10')+
+  coord_flip() +
+  theme(legend.position="none",panel.background = element_blank()) +
+  NULL +
+    scale_fill_brewer(palette="PuBu")
+
+ggplot(dat, aes(x=log10(realSum), y=attr_index, colour=city))+
+  geom_point(data = transform(dat,
+            city = NULL), colour = "grey85")+
+  geom_point()+
+  facet_wrap(~city)+
+  labs(y="Attraction Index")+
+  theme(legend.position="none") + theme_minimal()
+
+ggplot(dat, aes(x=log10(realSum), y=rest_index, colour=city))+
+  geom_point(data = transform(dat,
+            city = NULL), colour = "grey85")+
+  geom_point()+
+  facet_wrap(~city)+
+  labs(y="Restaurant Index")+
+  theme(legend.position="none") + theme_minimal()
+```
+## Análisis Geografico (app de Shiny)
+```{r}
+library(leaflet)
+library(tidyverse)
+library(shiny)
+
+mapa1 = dat
+ui <- fluidPage(
+    titlePanel("Airbnb - Análisis Predictivo"),
+    tabPanel("Análisis Geográfico", h1("Análisis Geográfico"),
+             fluidRow(
+               column(radioButtons("VerMapa", "",c("Ver los más caros","Ver los más baratos")), numericInput("Año", "Insertar un número:", min = 10, max = 51707, step = 1, value = c(10))
+                      ,width = 3), column(leafletOutput("Grafico5"),width = 9)),
+             fluidRow(column(h5(textOutput("TextG5")), width = 9, offset = 3)))
+)
+
+server <- function(input, output) {
+  data2 <- reactive({
+    data <- mapa1
+    if(!is.null(input$Año) & input$VerMapa == "Ver los más caros"){
+      data<- tail(dat[order(dat$realSum), ], input$Año)
+      data
+    }
+    else {
+      data<- head(dat[order(dat$realSum), ], input$Año)
+      data
+    }
+  })
+  
+  output$Grafico5 <- renderLeaflet({
+    data2 <- data2()
+    leaflet(data2) %>% addTiles() %>% addMarkers(
+      clusterOptions = markerClusterOptions(),
+      popup =  ~ paste("Precio: ",round(realSum, 2), ". Habitación:", room_type, ". Distancia al centro:", round(dist, 2), ". Día:", day, ". Capacidad:", person_capacity, ". Habitaciones:", bedrooms)
+    ) %>% addProviderTiles(providers$CartoDB.Positron)
+  })
+  
+  output$TextG5 <- renderText({
+   if(input$VerMapa == "Insertar cantidad: ") {""}
+  })
+}
+
+leaflet(dat) %>% addTiles() %>% addMarkers(
+      clusterOptions = markerClusterOptions(),
+      popup =  ~ paste("Precio: ",round(realSum, 2), ". Habitación:", room_type, ". Distancia al centro:", round(dist, 2), ". Día:", day, ". Capacidad:", person_capacity, ". Habitaciones:", bedrooms)
+    ) %>% addProviderTiles(providers$CartoDB.Positron)
+
+# Run the application 
+## shinyApp(ui = ui, server = server)
+```
+

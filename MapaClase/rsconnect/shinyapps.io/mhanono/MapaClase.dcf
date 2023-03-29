@@ -1,0 +1,13 @@
+name: MapaClase
+title: MapaClase
+username:
+account: mhanono
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8701875
+bundleId: 7020414
+url: https://mhanono.shinyapps.io/MapaClase/
+when: 1680037661.50106
+lastSyncTime: 1680037661.50106
+asMultiple: FALSE
+asStatic: FALSE
